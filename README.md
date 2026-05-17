@@ -1,4 +1,4 @@
-# Customer Retention Analytics Dashboard
+# Churn Analytics Portfolio
 
 **[English](#english) · [日本語](#japanese)**
 
@@ -9,7 +9,9 @@
 
 A portfolio project demonstrating how to turn raw customer data into a structured analytical story — from identifying who is about to leave, to understanding why, to building a budgetable retention plan.
 
-Built to show the approach I take on real client engagements. The IBM Telco Churn dataset stands in for client data; the pipeline, SQL logic, and dashboard structure are designed to be adapted to any subscription or recurring-revenue business.
+The dataset and domain are intentionally simple. The point is not the data — it's the process: structuring a clear narrative across six pages, writing SQL logic a client can read and challenge, and presenting findings in plain English without requiring a data background. That approach is what I bring to real engagements.
+
+The IBM Telco Churn dataset stands in for client data; the pipeline, SQL logic, and dashboard structure are designed to be adapted to any subscription or recurring-revenue business.
 
 ---
 
@@ -74,7 +76,7 @@ A client can read every rule, challenge every threshold, and adjust any number i
 ```bash
 # 1. Clone the repo
 git clone <your-repo-url>
-cd customer-retention-analytics
+cd churn-analytics-portfolio
 
 # 2. Create and activate a virtual environment
 python3 -m venv .venv
@@ -131,7 +133,9 @@ IBM Telco Customer Churn dataset. Originally from IBM Watson Analytics sample da
 
 「誰が解約しそうか」から「なぜか」「誰に何をすべきか」「いくらかかるか」まで、顧客データをひとつの一貫したストーリーとして提示するポートフォリオプロジェクトです。
 
-実際のクライアント案件で取るアプローチをベースに構築しています。デモデータにはIBM Telco Churnデータセットを使用していますが、パイプライン・SQLロジック・ダッシュボード構成はサブスクリプション型や継続課金型のビジネス全般に適用可能です。
+データセットとドメインはあえてシンプルなものを選んでいます。重要なのはデータではなく、プロセスです。6ページにわたって明確なストーリーを構成し、クライアントが読んで検証できるSQLロジックを書き、データの知識がない人にも伝わる言葉で分析結果を提示する——それが実案件で私が持ち込むアプローチです。
+
+デモデータにはIBM Telco Churnデータセットを使用していますが、パイプライン・SQLロジック・ダッシュボード構成はサブスクリプション型や継続課金型のビジネス全般に適用可能です。
 
 ---
 
@@ -195,7 +199,7 @@ ELSE '低リスク'
 
 ```bash
 git clone <your-repo-url>
-cd customer-retention-analytics
+cd churn-analytics-portfolio
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
