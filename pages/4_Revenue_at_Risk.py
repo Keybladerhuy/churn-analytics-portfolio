@@ -1,162 +1,153 @@
 """
 pages/4_Revenue_at_Risk.py — Revenue at Risk
 
-Translates customer churn risk into financial impact.
-Includes an interactive ROI calculator: "if you retain X% of
-high-risk customers, how much revenue do you recover?"
+Quantifies the cost of inaction: if at-risk customers leave at the
+historical rate, how much revenue does the business lose?
+Loss is the focus — revenue is shown for context only.
 """
 
-import streamlit as st
-import plotly.graph_objects as go
 import pandas as pd
+import streamlit as st
+import plotly.express as px
 
 from src.data_loader import get_connection, load_all
-from src.formatting import render_sidebar, fmt_currency, fmt_pct, RISK_COLORS, TIER_ORDER
+from src.formatting import render_sidebar, fmt_currency, fmt_pct, RISK_COLORS, sql_popover
 
 con = get_connection()
 dfs = load_all(con)
 
 render_sidebar(dfs)
 
-st.title("💰 Revenue at Risk")
-st.caption(
-    "How much monthly recurring revenue is exposed to churn? "
-    "Use these numbers to quantify the business case for a retention program."
-)
-
-rev = dfs["05_revenue_at_risk"]
+rev      = dfs["05_revenue_at_risk"]
 currency = st.session_state.get("currency", "USD ($)")
 
-tier_data  = rev[rev["risk_tier"] != "TOTAL"].copy()
-total_row  = rev[rev["risk_tier"] == "TOTAL"].iloc[0]
-high_row   = rev[rev["risk_tier"] == "High"].iloc[0]
+total_row = rev[rev["risk_tier"] == "TOTAL"].iloc[0]
+high_row  = rev[rev["risk_tier"] == "High"].iloc[0]
+med_row   = rev[rev["risk_tier"] == "Medium"].iloc[0]
+tier_data = rev[rev["risk_tier"] != "TOTAL"].copy()
+
+total_loss = float(total_row["estimated_annual_loss"])
+high_loss  = float(high_row["estimated_annual_loss"])
+med_loss   = float(med_row["estimated_annual_loss"])
+churn_pct  = float(total_row["baseline_churn_pct"])
 
 # ---------------------------------------------------------------------------
-# Summary table
+# Page header
 # ---------------------------------------------------------------------------
-st.subheader("Revenue Summary by Risk Tier")
-
-display = tier_data.copy()
-display["risk_tier"] = pd.Categorical(
-    display["risk_tier"], categories=TIER_ORDER, ordered=True
+st.title("💰 Revenue at Risk")
+st.markdown(
+    "The Retention Priority List in dollar terms. "
+    f"If at-risk customers leave at the historical rate, the business loses an estimated "
+    f"**{fmt_currency(total_loss, md=True)} this year** — before anything is done."
 )
-display = display.sort_values("risk_tier")
 
-# Add a totals row for display
-totals_display = total_row.to_frame().T
-display = pd.concat([display, totals_display], ignore_index=True)
+# ---------------------------------------------------------------------------
+# Three headline stat blocks — the cost of inaction at a glance
+# ---------------------------------------------------------------------------
+col1, col2, col3 = st.columns(3)
 
-display = display.rename(columns={
-    "risk_tier":              "Risk Tier",
-    "n_customers":            "Customers",
-    "monthly_revenue":        "Monthly Revenue",
-    "annual_revenue":         "Annual Revenue",
-    "baseline_churn_pct":     "Observed Churn %",
-    "estimated_monthly_loss": "Est. Monthly Loss",
-    "estimated_annual_loss":  "Est. Annual Loss",
-})
-
-for col in ["Monthly Revenue", "Annual Revenue", "Est. Monthly Loss", "Est. Annual Loss"]:
-    display[col] = display[col].apply(lambda v: fmt_currency(float(v), currency))
-
-display["Customers"] = display["Customers"].apply(lambda v: f"{int(v):,}")
-
-st.dataframe(display, use_container_width=True, hide_index=True)
-
-st.caption(
-    "Loss estimates apply the observed 26.5% dataset churn rate uniformly across tiers. "
-    "Real-world loss for High-risk customers will likely be higher — "
-    "use these as a conservative floor for business-case planning."
-)
+with col1:
+    st.metric(
+        "Total Estimated Annual Loss",
+        fmt_currency(total_loss),
+        help=f"All customers combined, applying the {fmt_pct(churn_pct)} observed churn rate",
+    )
+with col2:
+    st.metric(
+        "High-Risk Annual Loss",
+        fmt_currency(high_loss),
+        help=f"{int(high_row['n_customers']):,} customers showing all three warning signs",
+    )
+with col3:
+    st.metric(
+        "Medium-Risk Annual Loss",
+        fmt_currency(med_loss),
+        help=f"{int(med_row['n_customers']):,} customers showing at least one warning sign",
+    )
 
 st.divider()
 
 # ---------------------------------------------------------------------------
-# Bar chart: Monthly and Annual Revenue at Risk by Tier
+# Horizontal bar chart — estimated annual loss by tier
+# Bar length = expected dollar loss; consistent with the Executive Summary chart
 # ---------------------------------------------------------------------------
-st.subheader("Revenue at Risk by Tier")
+st.subheader("Estimated Annual Loss by Risk Group")
 
 chart_data = tier_data.copy()
+# "Low" first so "High" renders at the top in Plotly's bottom-up horizontal axis
 chart_data["risk_tier"] = pd.Categorical(
-    chart_data["risk_tier"], categories=TIER_ORDER, ordered=True
+    chart_data["risk_tier"], categories=["Low", "Medium", "High"], ordered=True
 )
 chart_data = chart_data.sort_values("risk_tier")
+chart_data["bar_label"] = chart_data.apply(
+    lambda r: f"{fmt_currency(r['estimated_annual_loss'])}  ({int(r['n_customers']):,} customers)",
+    axis=1,
+)
+# Pre-format hover values so they respect the selected display currency
+chart_data["loss_fmt"]   = chart_data["estimated_annual_loss"].apply(lambda v: fmt_currency(float(v), currency))
+chart_data["rev_fmt"]    = chart_data["annual_revenue"].apply(lambda v: fmt_currency(float(v), currency))
 
-fig = go.Figure()
-fig.add_trace(go.Bar(
-    name="Monthly Revenue",
-    x=chart_data["risk_tier"],
-    y=chart_data["monthly_revenue"],
-    marker_color=[RISK_COLORS[t] for t in chart_data["risk_tier"]],
-    opacity=0.6,
-    hovertemplate="<b>%{x}</b><br>Monthly: %{y:,.0f}<extra></extra>",
-))
-fig.add_trace(go.Bar(
-    name="Annual Revenue",
-    x=chart_data["risk_tier"],
-    y=chart_data["annual_revenue"],
-    marker_color=[RISK_COLORS[t] for t in chart_data["risk_tier"]],
-    hovertemplate="<b>%{x}</b><br>Annual: %{y:,.0f}<extra></extra>",
-))
+fig = px.bar(
+    chart_data,
+    x="estimated_annual_loss",
+    y="risk_tier",
+    color="risk_tier",
+    color_discrete_map=RISK_COLORS,
+    orientation="h",
+    text="bar_label",
+    custom_data=["loss_fmt", "rev_fmt", "n_customers"],
+    labels={"estimated_annual_loss": "", "risk_tier": ""},
+)
+fig.update_traces(
+    textposition="outside",
+    # Hover shows annual revenue so readers can see the full picture without a table
+    hovertemplate=(
+        "<b>%{y} risk</b><br>"
+        "Estimated annual loss: %{customdata[0]}<br>"
+        "Annual revenue: %{customdata[1]}<br>"
+        "Customers: %{customdata[2]:,.0f}"
+        "<extra></extra>"
+    ),
+)
 fig.update_layout(
-    barmode="group",
-    height=350,
-    margin=dict(t=20, b=0),
+    showlegend=False,
+    height=240,
+    margin=dict(t=10, b=10, l=10, r=10),
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-    yaxis_title="Revenue",
+    xaxis=dict(
+        range=[0, chart_data["estimated_annual_loss"].max() * 1.7],
+        showticklabels=False,
+        showgrid=False,
+        zeroline=False,
+    ),
 )
 st.plotly_chart(fig, use_container_width=True)
 
-st.divider()
-
-# ---------------------------------------------------------------------------
-# ROI Calculator
-# ---------------------------------------------------------------------------
-st.subheader("🧮 Retention ROI Calculator")
-st.markdown(
-    "Slide to see how much revenue you recover by retaining a percentage "
-    "of your **High-risk** customers."
-)
-
-high_monthly = float(high_row["monthly_revenue"])
-high_annual  = float(high_row["annual_revenue"])
-
-retention_pct = st.slider(
-    "If you retain this % of High-risk customers:",
-    min_value=5,
-    max_value=80,
-    value=20,
-    step=5,
-    format="%d%%",
-)
-
-recovered_monthly = high_monthly * retention_pct / 100
-recovered_annual  = high_annual  * retention_pct / 100
-
-rc1, rc2 = st.columns(2)
-with rc1:
-    st.metric(
-        f"Recovered monthly revenue ({retention_pct}% retention)",
-        fmt_currency(recovered_monthly, currency),
-    )
-with rc2:
-    st.metric(
-        "Recovered annual revenue",
-        fmt_currency(recovered_annual, currency),
-    )
-
-st.success(
-    f"Retaining just **{retention_pct}% of your {int(high_row['n_customers']):,} "
-    f"High-risk customers** would recover "
-    f"**{fmt_currency(recovered_annual, currency)} per year** — "
-    f"before accounting for the higher-than-average churn probability in this segment."
-)
-
-st.divider()
 st.caption(
-    "Source: `sql/05_revenue_at_risk.sql`. "
-    "Revenue figures are based on current MonthlyCharges in the dataset. "
-    "ROI calculations assume retention efforts succeed uniformly across the segment."
+    f"Based on the {fmt_pct(churn_pct)} observed churn rate applied to each group's annual revenue. "
+    "This is a conservative estimate — High-risk customers are disproportionately likely to churn, "
+    "so real losses in that tier will likely be higher."
 )
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# Connecting statement — bridge to the ROI Calculator
+# ---------------------------------------------------------------------------
+st.info(
+    "These are the stakes. The next page models what a retention program costs — "
+    "and whether the revenue recovered justifies the investment."
+)
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# Data Sources — standard pattern consistent with other pages
+# ---------------------------------------------------------------------------
+st.subheader("Data Sources")
+st.caption(
+    "Revenue figures are based on current MonthlyCharges in the dataset. "
+    "Loss estimates apply the observed churn rate uniformly — use as a conservative floor."
+)
+sql_popover("05_revenue_at_risk.sql", "📄 Show SQL")

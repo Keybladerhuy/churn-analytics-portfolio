@@ -1,10 +1,10 @@
 """
 pages/2_Churn_Drivers.py — Churn Driver Analysis
 
-Answers: "Which customer characteristics are most associated with churn?"
-
-All charts come directly from 02_churn_drivers.sql. No ML — the churn
-rates shown are plain counts from the dataset, divided by segment size.
+Answers "why are customers leaving?" and bridges the Executive Summary
+(scale of the problem) to the Retention Priority List (who to act on).
+Three drivers are covered in depth; monthly charges is noted as a
+correlate, not an independent signal.
 """
 
 import streamlit as st
@@ -12,139 +12,207 @@ import plotly.express as px
 import pandas as pd
 
 from src.data_loader import get_connection, load_all
-from src.formatting import render_sidebar, fmt_pct, RISK_COLORS
+from src.formatting import render_sidebar, sql_expander
 
 con = get_connection()
 dfs = load_all(con)
 
 render_sidebar(dfs)
 
-st.title("📉 Churn Driver Analysis")
-st.caption(
-    "Which customer segments churn at the highest rate? "
-    "Use this to decide where to focus retention investment."
-)
-
 drivers = dfs["02_churn_drivers"]
 
-# Top driver callout
-top = drivers.iloc[0]
-st.info(
-    f"**Top churn driver:** {top['driver']} — segment **\"{top['segment']}\"** "
-    f"has a **{top['churn_rate']}% churn rate** "
-    f"({int(top['churned_customers']):,} churned out of {int(top['n_customers']):,} customers). "
-    f"This is the single highest-churn segment in the dataset."
+# Pre-compute the key high/low comparisons used throughout the page
+contract = drivers[drivers["driver"] == "Contract type"]
+worst_contract = contract.loc[contract["churn_rate"].idxmax()]
+best_contract  = contract.loc[contract["churn_rate"].idxmin()]
+
+tenure = drivers[drivers["driver"] == "Tenure bucket"]
+worst_tenure = tenure.loc[tenure["churn_rate"].idxmax()]
+best_tenure  = tenure.loc[tenure["churn_rate"].idxmin()]
+
+# Exclude "No internet service" — they cannot have tech support, different population
+tech = drivers[
+    (drivers["driver"] == "Tech support add-on") &
+    (drivers["segment"] != "No internet service")
+]
+worst_tech = tech.loc[tech["churn_rate"].idxmax()]
+best_tech  = tech.loc[tech["churn_rate"].idxmin()]
+
+# ---------------------------------------------------------------------------
+# Page header
+# ---------------------------------------------------------------------------
+st.title("📉 Churn Drivers")
+st.markdown(
+    "Not all customers leave for the same reason. "
+    "Three traits explain most of the difference between customers who stay and customers who go."
+)
+
+# ---------------------------------------------------------------------------
+# At a glance — one table showing all three drivers side by side
+# so the reader sees the full picture before the detail below
+# ---------------------------------------------------------------------------
+st.markdown(
+    "| Driver | Highest-churn group | Lowest-churn group |\n"
+    "|--------|---------------------|--------------------|\n"
+    f"| Contract type | {worst_contract['segment']}: **{worst_contract['churn_rate']}%** "
+    f"| {best_contract['segment']}: **{best_contract['churn_rate']}%** |\n"
+    f"| Time as a customer | {worst_tenure['segment']}: **{worst_tenure['churn_rate']}%** "
+    f"| {best_tenure['segment']}: **{best_tenure['churn_rate']}%** |\n"
+    f"| Tech support | {worst_tech['segment']}: **{worst_tech['churn_rate']}%** "
+    f"| {best_tech['segment']}: **{best_tech['churn_rate']}%** |"
+)
+st.caption("Each row shows the worst-case and best-case segment for that driver. The gap tells the story.")
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# Deep dive 1 — Contract type
+# Gets the full chart treatment: it's the most actionable finding
+# and the biggest gap (roughly 15× between month-to-month and two-year)
+# ---------------------------------------------------------------------------
+st.subheader("1. Contract type is the strongest predictor")
+
+contract_data = contract.copy().sort_values("churn_rate", ascending=False)
+# Combine churn rate + customer count into one bar label for full context
+contract_data["bar_label"] = contract_data.apply(
+    lambda r: f"{r['churn_rate']}%  ·  {int(r['n_customers']):,} customers", axis=1
+)
+
+fig = px.bar(
+    contract_data,
+    x="segment",
+    y="churn_rate",
+    color="churn_rate",
+    color_continuous_scale=["#5CB85C", "#F0AD4E", "#D9534F"],
+    text="bar_label",
+    labels={"segment": "", "churn_rate": "Churn Rate (%)"},
+    custom_data=["n_customers", "churned_customers"],
+)
+fig.update_traces(
+    textposition="outside",
+    hovertemplate=(
+        "<b>%{x}</b><br>"
+        "Churn rate: %{y}%<br>"
+        "Customers: %{customdata[0]:,}<br>"
+        "Churned: %{customdata[1]:,.0f}"
+        "<extra></extra>"
+    ),
+)
+fig.update_layout(
+    showlegend=False,
+    coloraxis_showscale=False,
+    height=320,
+    margin=dict(t=20, b=0),
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    yaxis=dict(range=[0, contract_data["churn_rate"].max() * 1.3]),
+)
+st.plotly_chart(fig, use_container_width=True)
+
+contract_multiplier = round(worst_contract["churn_rate"] / best_contract["churn_rate"])
+st.markdown(
+    f"Month-to-month customers churn at **{worst_contract['churn_rate']}%** — "
+    f"roughly **{contract_multiplier}× the rate** of two-year contract holders "
+    f"({best_contract['churn_rate']}%). "
+    "Every customer moved from a month-to-month plan to an annual or two-year contract "
+    "significantly lowers their likelihood of leaving. "
+    "This is the single highest-impact retention lever in the dataset."
 )
 
 st.divider()
 
+# ---------------------------------------------------------------------------
+# Deep dives 2 & 3 — Tenure and tech support, side by side
+# These don't need full charts — two numbers tell the story more clearly
+# ---------------------------------------------------------------------------
+col_tenure, col_tech = st.columns(2)
 
-def bar_chart(data: pd.DataFrame, title: str, plain_english: str) -> None:
-    """Render a churn-rate bar chart with a plain-English explanation."""
-    st.subheader(title)
-    fig = px.bar(
-        data.sort_values("churn_rate", ascending=False),
-        x="segment",
-        y="churn_rate",
-        color="churn_rate",
-        color_continuous_scale=["#5CB85C", "#F0AD4E", "#D9534F"],
-        text=data.sort_values("churn_rate", ascending=False)["churn_rate"].apply(
-            lambda v: f"{v}%"
-        ),
-        labels={"segment": "", "churn_rate": "Churn Rate (%)"},
-        custom_data=["n_customers", "churned_customers"],
+with col_tenure:
+    st.subheader("2. New customers are the most vulnerable")
+    st.caption(
+        "**Tenure** is simply how many months someone has been a customer. "
+        "The shorter the tenure, the less committed they are — they haven't yet decided to stay."
     )
-    fig.update_traces(
-        textposition="outside",
-        hovertemplate=(
-            "<b>%{x}</b><br>"
-            "Churn rate: %{y}%<br>"
-            "Customers: %{customdata[0]:,}<br>"
-            "Churned: %{customdata[1]:,.0f}"
-            "<extra></extra>"
-        ),
+
+    m1, m2 = st.columns(2)
+    with m1:
+        st.metric(
+            "First 6 months",
+            f"{worst_tenure['churn_rate']}%",
+            help=f"{int(worst_tenure['n_customers']):,} customers in this group",
+        )
+    with m2:
+        st.metric(
+            "After 2 years",
+            f"{best_tenure['churn_rate']}%",
+            help=f"{int(best_tenure['n_customers']):,} customers in this group",
+        )
+
+    tenure_multiplier = round(worst_tenure["churn_rate"] / best_tenure["churn_rate"])
+    st.markdown(
+        f"Customers in their first 6 months churn at **{tenure_multiplier}× the rate** "
+        "of those who have been around for 2+ years. "
+        "Onboarding programs, early check-in calls, and first-month incentives "
+        "target this window directly."
     )
-    fig.update_layout(
-        showlegend=False,
-        coloraxis_showscale=False,
-        height=320,
-        margin=dict(t=20, b=0),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        yaxis=dict(range=[0, data["churn_rate"].max() * 1.25]),
+
+with col_tech:
+    st.subheader("3. Tech support creates stickiness")
+    st.caption(
+        "Customers with a tech support add-on have someone to call when things go wrong. "
+        "That relationship makes them significantly less likely to leave."
     )
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown(f"> {plain_english}")
-    st.markdown("")
 
+    m1, m2 = st.columns(2)
+    with m1:
+        st.metric(
+            "No tech support",
+            f"{worst_tech['churn_rate']}%",
+            help=f"{int(worst_tech['n_customers']):,} customers in this group",
+        )
+    with m2:
+        st.metric(
+            "Has tech support",
+            f"{best_tech['churn_rate']}%",
+            help=f"{int(best_tech['n_customers']):,} customers in this group",
+        )
 
-# ---------------------------------------------------------------------------
-# 1. Contract type
-# ---------------------------------------------------------------------------
-bar_chart(
-    drivers[drivers["driver"] == "Contract type"],
-    "Churn Rate by Contract Type",
-    "Month-to-month customers churn at over 40% — nearly four times the rate "
-    "of two-year contract holders. Every customer you move to an annual or "
-    "two-year contract significantly reduces their churn probability. "
-    "This is the easiest lever to pull: target month-to-month customers "
-    "with a discount offer to upgrade.",
-)
-
-# ---------------------------------------------------------------------------
-# 2. Tenure bucket
-# ---------------------------------------------------------------------------
-tenure_data = drivers[drivers["driver"] == "Tenure bucket"].copy()
-tenure_order = ["0-6 months", "6-12 months", "1-2 years", "2+ years"]
-tenure_data["segment"] = pd.Categorical(
-    tenure_data["segment"], categories=tenure_order, ordered=True
-)
-tenure_data = tenure_data.sort_values("segment")
-
-bar_chart(
-    tenure_data,
-    "Churn Rate by Customer Tenure",
-    "More than half of customers in their first 6 months leave. "
-    "This is the 'new customer cliff' — the critical window where customers "
-    "decide if your service is worth keeping. "
-    "Onboarding programs, check-in calls, and early incentives during months 1-6 "
-    "deliver the highest retention ROI of any initiative.",
-)
-
-# ---------------------------------------------------------------------------
-# 3. Monthly charge tier
-# ---------------------------------------------------------------------------
-charge_order = ["Low (<$35)", "Mid ($35-$65)", "High (>$65)"]
-charge_data = drivers[drivers["driver"] == "Monthly charge tier"].copy()
-charge_data["segment"] = pd.Categorical(
-    charge_data["segment"], categories=charge_order, ordered=True
-)
-charge_data = charge_data.sort_values("segment")
-
-bar_chart(
-    charge_data,
-    "Churn Rate by Monthly Charge Tier",
-    "Higher-paying customers churn more — counterintuitively, because they are "
-    "also more likely to be on month-to-month contracts with premium services. "
-    "High-charge churners represent disproportionate revenue impact. "
-    "Prioritise retention outreach by monthly charge value, not just churn probability.",
-)
-
-# ---------------------------------------------------------------------------
-# 4. Tech support add-on
-# ---------------------------------------------------------------------------
-bar_chart(
-    drivers[drivers["driver"] == "Tech support add-on"],
-    "Churn Rate by Tech Support Subscription",
-    "Customers without tech support churn at 41.6% — nearly double those "
-    "who have it. This suggests that tech support creates a 'stickiness' effect: "
-    "customers feel more supported and less likely to switch. "
-    "Offering tech support as a free trial to at-risk customers is a "
-    "low-cost, high-impact retention tactic.",
-)
+    tech_multiplier = round(worst_tech["churn_rate"] / best_tech["churn_rate"])
+    st.markdown(
+        f"Customers without tech support churn at nearly **{tech_multiplier}× the rate** "
+        "of those who have it. "
+        "Offering tech support as a free trial to at-risk customers is a "
+        "low-cost, high-impact retention tactic."
+    )
 
 st.divider()
+
+# ---------------------------------------------------------------------------
+# Monthly charges — note only, not a full chart
+# It correlates with contract type rather than being an independent driver
+# ---------------------------------------------------------------------------
+charge_data = drivers[drivers["driver"] == "Monthly charge tier"]
+high_charge  = charge_data.loc[charge_data["churn_rate"].idxmax()]
 st.caption(
-    "All figures are calculated directly from the customer dataset using plain SQL. "
-    "See `sql/02_churn_drivers.sql` for the full query logic."
+    f"**What about monthly charges?** High-charge customers do churn more "
+    f"({high_charge['segment']}: {high_charge['churn_rate']}%), but this largely reflects "
+    "that premium plans tend to be month-to-month — not an independent signal. "
+    "For that reason it is not included in the risk score."
 )
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# Connecting statement — bridge to the Retention Priority List
+# ---------------------------------------------------------------------------
+st.info(
+    "These three factors — **contract type**, **time as a customer**, and **tech support** — "
+    "are the building blocks of the risk score. "
+    "The next page uses all three together to flag specific customers "
+    "and tell your team exactly who to call first."
+)
+
+st.divider()
+st.subheader("Data Sources")
+# st.expander: collapses to a single line when closed so it doesn't crowd the content above
+sql_expander("02_churn_drivers.sql", "📄 Show SQL — 02_churn_drivers.sql")
