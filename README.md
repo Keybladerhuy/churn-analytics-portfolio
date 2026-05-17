@@ -59,23 +59,6 @@ A client can read every rule, challenge every threshold, and adjust any number i
 
 ---
 
-### What a client needs to provide
-
-A CSV export or BigQuery table with at minimum these columns:
-
-| Column | Type | Example | Notes |
-|--------|------|---------|-------|
-| `customerID` | String | `7590-VHVEG` | Unique per customer |
-| `Contract` | String | `Month-to-month` | `Month-to-month` / `One year` / `Two year` |
-| `tenure` | Integer | `1` | Months as a customer |
-| `MonthlyCharges` | Float | `29.85` | Current monthly bill |
-| `TechSupport` | String | `No` | `Yes` / `No` / `No internet service` |
-| `Churn` | String | `Yes` | `Yes` / `No` — used to calibrate the loss estimate |
-
-Optional columns used for additional driver analysis: `InternetService`, `PaymentMethod`.
-
----
-
 ### What the client gets
 
 1. **Dashboard URL** — a Streamlit Cloud link, viewable in any browser with no installation
@@ -195,23 +178,6 @@ ELSE '低リスク'
 - テクニカルサポートなし顧客の解約率は **41.6%** — サポートあり顧客の約3倍
 
 すべてのルールをクライアントが読め、しきい値は数分で変更可能です。説明できないモデル、信頼するしかないブラックボックスは一切ありません。
-
----
-
-### クライアント側で必要なもの
-
-以下の列を含むCSVまたはBigQueryテーブル：
-
-| 列名 | 型 | 例 | 備考 |
-|------|----|----|------|
-| `customerID` | 文字列 | `7590-VHVEG` | 顧客ごとの一意ID |
-| `Contract` | 文字列 | `Month-to-month` | `Month-to-month` / `One year` / `Two year` |
-| `tenure` | 整数 | `1` | 利用継続月数 |
-| `MonthlyCharges` | 小数 | `29.85` | 月額料金 |
-| `TechSupport` | 文字列 | `No` | `Yes` / `No` / `No internet service` |
-| `Churn` | 文字列 | `Yes` | `Yes` / `No` — 損失額の推計に使用 |
-
-追加分析に使用するオプション列：`InternetService`、`PaymentMethod`
 
 ---
 
