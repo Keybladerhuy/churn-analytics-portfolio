@@ -8,6 +8,8 @@ should not misrepresent FX math.  Real client deployments can add a
 conversion multiplier here once the client's base currency is known.
 """
 
+from typing import Optional
+
 import streamlit as st
 
 # ---------------------------------------------------------------------------
@@ -34,7 +36,7 @@ def get_currency() -> str:
     return st.session_state.get("currency", "USD ($)")
 
 
-def fmt_currency(value: float, currency: str | None = None) -> str:
+def fmt_currency(value: float, currency: Optional[str] = None) -> str:
     """Format a numeric value with the selected currency symbol."""
     if currency is None:
         currency = get_currency()
