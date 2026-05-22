@@ -108,10 +108,13 @@ def render_sidebar(dfs: dict) -> None:
 
         st.divider()
 
-        # Dataset info
         st.markdown("**Dataset**")
+        st.caption("7,043 customer records — one row per client.")
+
+        st.divider()
+
+        st.markdown("**Analysis**")
         st.caption(
-            "7,043 customer records — one row per client. "
-            "All analysis is written in SQL: every rule is readable, "
-            "auditable, and can be tuned to fit any business."
+            "Written in SQL. Every rule is readable, auditable, "
+            "and can be tuned to fit any business."
         )
