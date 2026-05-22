@@ -144,29 +144,10 @@ def render_sidebar(dfs: dict) -> None:
 
         # Dataset info
         st.markdown("**Dataset**")
-        if "03_customer_scoring" in dfs:
-            n = len(dfs["03_customer_scoring"])
-            st.metric("Customers", f"{n:,}")
-        if "01_data_quality" in dfs:
-            dq = dfs["01_data_quality"]
-            churn_row = dq[dq["check_name"] == "Overall churn rate"]
-            if not churn_row.empty:
-                st.metric("Overall churn rate", churn_row.iloc[0]["value"])
-        st.caption("No date column in this dataset — tenure is in months.")
-
-        st.divider()
-
-        # Currency toggle
-        st.markdown("**Display currency**")
-        st.radio(
-            label="currency_radio",
-            options=list(CURRENCIES.keys()),
-            key="currency",
-            label_visibility="collapsed",
-        )
         st.caption(
-            "Relabels the symbol only.  Demo data is in USD.  "
-            "Real deployments apply your own FX rates."
+            "7,043 customer records — one row per client. "
+            "All analysis is written in SQL: every rule is readable, "
+            "auditable, and can be tuned to fit any business."
         )
 
         st.divider()
