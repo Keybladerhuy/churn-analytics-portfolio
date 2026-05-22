@@ -104,7 +104,6 @@ def render_sidebar(dfs: dict) -> None:
     """
     with st.sidebar:
         st.markdown("## Customer Retention Analytics")
-        st.caption("Portfolio demo · IBM Telco Churn dataset")
 
         st.divider()
 
