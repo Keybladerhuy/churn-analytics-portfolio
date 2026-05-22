@@ -78,6 +78,13 @@ st.markdown(
     f"Here is where that risk is concentrated:"
 )
 
+st.caption(
+    "A customer is flagged as at-risk when they combine the traits most associated with leaving: "
+    "a month-to-month contract, short tenure, and no tech support add-on. "
+    "The **Churn Drivers** page shows the evidence behind each signal. "
+    "The **Retention Priority List** shows every at-risk customer and the exact rule that flagged them."
+)
+
 # ---------------------------------------------------------------------------
 # Horizontal bar chart — estimated annual loss by risk group
 #
