@@ -116,5 +116,7 @@ def render_sidebar(dfs: dict) -> None:
         st.markdown("**Analysis**")
         st.caption(
             "Written in SQL. Every rule is readable, auditable, "
-            "and can be tuned to fit any business."
+            "and can be tuned to fit any business. "
+            "Every page shows its SQL at the bottom — open it to verify the logic "
+            "or adapt it to your own data."
         )
