@@ -63,11 +63,11 @@ with chart_col:
         values=[n_churned, n_retained],
         names=["Churned", "Retained"],
         hole=0.6,
-        color_discrete_map={"Churned": "#D9534F", "Retained": "#5CB85C"},
     )
     fig.update_traces(
         textinfo="percent",
         hovertemplate="<b>%{label}</b><br>%{value:,} customers<extra></extra>",
+        marker=dict(colors=["#D9534F", "#5CB85C"]),
     )
     fig.update_layout(
         height=180,
