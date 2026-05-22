@@ -7,6 +7,8 @@
 <a name="english"></a>
 ## English
 
+https://churn-analytics-andy.streamlit.app
+
 A portfolio project demonstrating how to turn raw customer data into a structured analytical story — from identifying who is about to leave, to understanding why, to building a budgetable retention plan.
 
 The dataset and domain are intentionally simple. The point is not the data — it's the process: structuring a clear narrative across six pages, writing SQL logic a client can read and challenge, and presenting findings in plain English without requiring a data background. That approach is what I bring to real engagements.
