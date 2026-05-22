@@ -71,6 +71,24 @@ st.caption(
 st.divider()
 
 # ---------------------------------------------------------------------------
+# Scoring methodology — collapsed by default, available before the filters
+# ---------------------------------------------------------------------------
+with st.expander("How are customers scored?"):
+    st.markdown(
+        "Risk is assigned using three transparent rules — no machine learning, no black box.\n\n"
+        "| Tier | Criteria |\n"
+        "|------|----------|\n"
+        "| 🔴 **High** | Month-to-month contract **AND** tenure < 12 months **AND** no tech support |\n"
+        "| 🟡 **Medium** | Month-to-month contract **OR** tenure < 6 months |\n"
+        "| 🟢 **Low** | Everything else — annual contract or established customer |\n\n"
+        "The rules were derived from the **Churn Drivers** page: the segments with the highest "
+        "observed churn rates become the scoring criteria. Any threshold (e.g. 12 → 18 months) "
+        "can be adjusted in `sql/03_customer_scoring.sql` and the entire analysis updates instantly."
+    )
+
+st.divider()
+
+# ---------------------------------------------------------------------------
 # Filters — default to High only so the list opens in a focused, actionable state
 # ---------------------------------------------------------------------------
 st.subheader("Filters")

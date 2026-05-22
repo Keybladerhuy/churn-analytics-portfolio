@@ -91,40 +91,6 @@ def sql_popover(filename: str, label: str = "📄 Show SQL") -> None:
         st.code(load_sql(filename), language="sql")
 
 
-# ---------------------------------------------------------------------------
-# Scoring rules explanation — shown in the sidebar "How this works" expander.
-# This is the transparency selling point: the client can read every rule.
-# ---------------------------------------------------------------------------
-_SCORING_EXPLANATION = """
-**How customers are scored**
-
-Risk is assigned using three transparent rules — no machine learning,
-no black box. Every reason is readable.
-
-```
-HIGH RISK (score 3)
-  Month-to-month contract
-  AND tenure < 12 months
-  AND no tech support add-on
-
-MEDIUM RISK (score 2)
-  Month-to-month contract
-  OR tenure < 6 months
-
-LOW RISK (score 1)
-  Everything else
-  (annual/two-year contract + established customer)
-```
-
-These rules were derived from the churn driver analysis in the
-**Churn Drivers** page — the segments with the highest observed churn
-rates are used as the scoring criteria.
-
-A client can adjust any threshold (e.g. change 12→18 months) and
-re-run the analysis in minutes.  The scoring logic is in
-`sql/03_customer_scoring.sql`, one screen of plain SQL.
-"""
-
 
 def render_sidebar(dfs: dict) -> None:
     """
@@ -149,9 +115,3 @@ def render_sidebar(dfs: dict) -> None:
             "All analysis is written in SQL: every rule is readable, "
             "auditable, and can be tuned to fit any business."
         )
-
-        st.divider()
-
-        # Transparency expander — the main selling point
-        with st.expander("How this works", expanded=False):
-            st.markdown(_SCORING_EXPLANATION)
